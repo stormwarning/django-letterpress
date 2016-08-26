@@ -97,7 +97,7 @@ def hanging(text):
         return false
         '''
         
-    if text.length < 2:
+    if len(text) < 2:
         output = text
     else:
         '''
