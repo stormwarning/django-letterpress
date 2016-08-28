@@ -11,7 +11,10 @@ from django.utils.html import conditional_escape
 from django.utils.safestring import mark_safe
 
 register = template.Library()
-IGNORE = 'head, code, pre, script, style, [class^="pull-"], [class^="push-"], .small-caps'
+IGNORE = (
+    'head', 'code', 'kbd', 'pre', 'samp', 'script', 'style', 'tt', 'xmp',
+    '[class^="pull-"]', '[class^="push-"]', '.small-caps'
+)
 
 
 def smart_filter(funct):
