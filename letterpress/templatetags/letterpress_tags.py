@@ -11,9 +11,10 @@ from django.utils.html import conditional_escape
 from django.utils.safestring import mark_safe
 
 register = template.Library()
+IGNORE = 'head, code, pre, script, style, [class^="pull-"], [class^="push-"], .small-caps'
 
 
-def smart_filter(fn):
+def smart_filter(funct):
     '''
     Escapes filter's content based on template autoescape mode and marks
     output as safe.
@@ -27,12 +28,33 @@ def smart_filter(fn):
         else:
             esc = lambda x: x
 
-        return mark_safe(fn(esc(text)))
+        return mark_safe(funct(esc(text)))
 
     wrapper.needs_autoescape = True
-    register.filter(fn.__name__, wrapper)
+    register.filter(funct.__name__, wrapper)
 
     return wrapper
+
+
+def _process_text_nodes(text_to_proc, proc):
+    for child_node in text_to_proc.childNodes:
+        # Should this node be ignored?
+        if text_to_proc.contains(IGNORE):
+            return False
+
+        # Is it a TEXT_NODE?
+        if child_node.nodeType == 3:
+            content = child_node.data
+
+            content = content.re(r'/&#39;/g, "\'"')
+            content = content.re(r'/&quot;/g, \'"\'')
+
+            child_node.data = content
+            child_node.replaceWith(proc(content, child_node))
+
+        # Then keep looking.
+        else:
+            _process_text_nodes(child_node, proc)
 
 
 @smart_filter
@@ -77,45 +99,63 @@ def hanging(text):
     def _push(classname, content):
         return '''<span class="push-%s">%s</span>''' % (classname, content)
 
-    def _hasAdjacentText(node):
+    def _has_adjacent_text(test_node):
         '''
-        if node.prev && node.prev.children && node.prev.children.length
-            lastChild = node.prev.children.slice(-1)[0]
-
-            if lastChild && lastChild.type === 'text'
-                return true
-
-        if !node.parent() || !nod).parent().length
-            return false
-
-        parentPrev = node.parent()[0].prev
-
-        Ensure the parent has text content and is not simply a newline seperating tags.
-        if parentPrev && parentPrev.type === 'text' && parentPrev.data.trim()
-            return true
-
-        return false
+        Test for text adjacent to current word, even if within a different node.
         '''
-        
+        test_sibling = test_node.previousSibling
+
+        if test_sibling and test_sibling.childNodes and len(test_sibling.childNodes):
+            last_child = test_sibling.childNodes.slice(-1)[0]
+
+            if last_child and last_child.nodeType == 3:
+                return True
+
+        if not test_node.parentNode or not len(test_node.parentNode):
+            return False
+
+        previous_parent = test_node.parentNode[0].previousSibling
+
+        # Ensure the parent has text content and is not simply a newline seperating tags.
+        if previous_parent and previous_parent.nodeType == 3 and previous_parent.data.trim():
+            return True
+
+        return False
+
     if len(text) < 2:
         output = text
     else:
-        '''
-        for each words
-            for each in double_width
-                punctuation = double_width[j]
-                if words[i].slice(0, punctuation.length) === punctuation
-                    insert = pull('single', punctuation)
+        output = _process_text_nodes(text, _proc_hanging)
 
-                    if (words[(i-1)])
-                        words[(i-1)] = words[(i-1)] + _push('single')
-                    else if hasAdjacentText
-                        insert = _push('single') + insert
+    def _proc_hanging(content, child_node):
+        # Remove consecutive double spaces then create array of distinct words.
+        words = child_node.split(' ').join(' ').split(' ')
 
-                    words[i] = insert + words[i].slice(punctuation.length)
+        for i, word in enumerate(words):
+            for punc in double_width:
+                punctuation = punc
+                if word.slice(0, len(punctuation)) == punctuation:
+                    insert = _pull('double', punctuation)
 
-            for each in single_width
-                ...
-        '''
+                    if words[i-1]:
+                        words[i-1] = words[i-1] + _push('double', '')
+                    elif _has_adjacent_text(child_node):
+                        insert = _push('double', '') + insert
+
+                    word = insert + word.slice(len(punctuation))
+
+            for punc in single_width:
+                punctuation = punc
+                if word.slice(0, len(punctuation)) == punctuation:
+                    insert = _pull('single', punctuation)
+
+                    if words[i-1]:
+                        words[i-1] = words[i-1] + _push('single', '')
+                    elif _has_adjacent_text(child_node):
+                        insert = _push('single', '') + insert
+
+                    word = insert + word.slice(len(punctuation))
+
+        return words
 
     return output
