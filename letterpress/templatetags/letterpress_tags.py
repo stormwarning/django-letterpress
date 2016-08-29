@@ -68,7 +68,7 @@ def hanging(text):
     on the column edge.
     '''
 
-    double_width = [
+    double_width = {
         '&quot;',
         '"',
         "“",
@@ -85,8 +85,8 @@ def hanging(text):
         '&ldquor;',
         '&bdquo;',
         '&#8222;'
-    ]
-    single_width = [
+    }
+    single_width = {
         "'",
         '&prime;',
         '&apos;',
@@ -94,13 +94,13 @@ def hanging(text):
         '&rsquo;',
         '‘',
         '’'
-    ]
+    }
 
     def _pull(classname, content):
-        return '''<span class="pull-%s">%s</span>''' % (classname, content)
+        return '<span class="pull-{0}">{1}</span>'.format(classname, content)
 
     def _push(classname, content):
-        return '''<span class="push-%s">%s</span>''' % (classname, content)
+        return '<span class="push-{0}">{1}</span>'.format(classname, content)
 
     def _has_adjacent_text(test_node):
         '''
@@ -132,32 +132,30 @@ def hanging(text):
 
     def _proc_hanging(content, child_node):
         # Remove consecutive double spaces then create array of distinct words.
-        words = child_node.split(' ').join(' ').split(' ')
+        words = ' '.join(child_node.split()).split(' ')
 
         for i, word in enumerate(words):
-            for punc in double_width:
-                punctuation = punc
-                if word.slice(0, len(punctuation)) == punctuation:
-                    insert = _pull('double', punctuation)
+            for punct in double_width:
+                if word.startswith(punct):
+                    insert = _pull('double', word[0:len(punct)])
 
-                    if words[i-1]:
+                    if i != 0:
                         words[i-1] = words[i-1] + _push('double', '')
                     elif _has_adjacent_text(child_node):
                         insert = _push('double', '') + insert
 
-                    word = insert + word.slice(len(punctuation))
+                    word = insert + word[len(punct):]
 
-            for punc in single_width:
-                punctuation = punc
-                if word.slice(0, len(punctuation)) == punctuation:
-                    insert = _pull('single', punctuation)
+            for punct in single_width:
+                if word.startswith(punct):
+                    insert = _pull('single', word[0:len(punct)])
 
-                    if words[i-1]:
+                    if i != 0:
                         words[i-1] = words[i-1] + _push('single', '')
                     elif _has_adjacent_text(child_node):
                         insert = _push('single', '') + insert
 
-                    word = insert + word.slice(len(punctuation))
+                    word = insert + word[len(punct):]
 
         return words
 
