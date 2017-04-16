@@ -13,7 +13,7 @@ from django.utils.safestring import mark_safe
 register = template.Library()
 IGNORE = (
     'head', 'code', 'kbd', 'pre', 'samp', 'script', 'style', 'tt', 'xmp',
-    '[class^="pull-"]', '[class^="push-"]', '.small-caps'
+    # '[class^="pull-"]', '[class^="push-"]', '.small-caps'
 )
 
 
@@ -42,7 +42,7 @@ def smart_filter(funct):
 def _process_text_nodes(text_to_proc, proc):
     for child_node in text_to_proc.childNodes:
         # Should this node be ignored?
-        if text_to_proc.contains(IGNORE):
+        if text_to_proc in IGNORE:
             return False
 
         # Is it a TEXT_NODE?
